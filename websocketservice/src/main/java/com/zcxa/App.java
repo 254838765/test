@@ -1,11 +1,14 @@
 package com.zcxa;
 
+import com.zcxa.client.WebSocketClient;
 import com.zcxa.handler.NioWebSocketChannelInitializer;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.logging.Logger;
 
 
@@ -22,7 +25,21 @@ public class App {
         //路径为jar 路径
         // logger.info(App.class.getProtectionDomain().getCodeSource().getLocation().getPath());
         // start(Integer.valueOf(args[0]));
-        start(8080);
+
+//        Thread thread = new Thread(()->{
+//            //
+//            start(8080);
+//        });
+//        thread.start();
+
+        try {
+            //Thread.sleep(2000);
+            URI uri = new URI("ws://127.0.0.1:7009/123456");
+            WebSocketClient client = new WebSocketClient(uri);
+            client.connect();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     /**
