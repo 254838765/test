@@ -1,7 +1,9 @@
 package com.zcxa;
 
+import com.alibaba.fastjson.JSONObject;
 import com.zcxa.client.WebSocketClient;
 import com.zcxa.handler.NioWebSocketChannelInitializer;
+import com.zcxa.model.Message;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -32,11 +34,21 @@ public class App {
 //        });
 //        thread.start();
 
+
+        WebSocketClient client = null;
         try {
             //Thread.sleep(2000);
-            URI uri = new URI("ws://127.0.0.1:7009/123456");
-            WebSocketClient client = new WebSocketClient(uri);
+            URI uri = new URI("ws://127.0.0.1:7009/456789");
+            client = new WebSocketClient(uri);
             client.connect();
+
+            while (true){
+                Thread.sleep(2000);
+                Message msg = new Message();
+                msg.setTo("ALL");
+                msg.setMsg("Hello World!");
+                client.send(JSONObject.toJSONString(msg));
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }

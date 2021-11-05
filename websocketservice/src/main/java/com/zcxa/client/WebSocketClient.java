@@ -1,18 +1,17 @@
 package com.zcxa.client;
 
-import com.zcxa.handler.NioWebSocketHandler;
+
 import io.netty.bootstrap.Bootstrap;
-import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.http.*;
 import io.netty.handler.codec.http.websocketx.*;
-import io.netty.handler.stream.ChunkedWriteHandler;
 import io.netty.util.CharsetUtil;
 
 import java.net.URI;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 /**
@@ -47,9 +46,9 @@ public class WebSocketClient {
         bootstrap.handler(new ChannelInitializer<SocketChannel>() {
             @Override
             protected void initChannel(SocketChannel ch) throws Exception {
-                ch.pipeline().addLast("http-code",new HttpClientCodec());
-                ch.pipeline().addLast("aggregator",new HttpObjectAggregator(65536));
-                ch.pipeline().addLast("handler",handler);
+                ch.pipeline().addLast("http-code", new HttpClientCodec());
+                ch.pipeline().addLast("aggregator", new HttpObjectAggregator(65536));
+                ch.pipeline().addLast("handler", handler);
             }
         });
 
@@ -63,23 +62,31 @@ public class WebSocketClient {
             e.printStackTrace();
         } finally {
             group.shutdownGracefully();
+            try {
+                TimeUnit.SECONDS.sleep(5);
+                connect();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
     }
 
 
+    public void send(String text){
+        TextWebSocketFrame tws = new TextWebSocketFrame(text);
+        channel.writeAndFlush(tws);
+    }
+
 
     class WebSocketClientHandler extends SimpleChannelInboundHandler<Object> {
-
         WebSocketClientHandshaker handShaker;
-
         ChannelPromise handshakeFuture;
-
 
         public ChannelFuture handshakeFuture() {
             return handshakeFuture;
         }
 
-        public void setHandShaker(WebSocketClientHandshaker handShaker){
+        public void setHandShaker(WebSocketClientHandshaker handShaker) {
             this.handShaker = handShaker;
         }
 
@@ -90,7 +97,9 @@ public class WebSocketClient {
 
         @Override
         public void channelActive(ChannelHandlerContext ctx) throws Exception {
+            logger.info(ctx.channel().toString());
             handShaker.handshake(ctx.channel());
+            logger.info("websocket client connected!");
         }
 
         @Override
@@ -98,35 +107,28 @@ public class WebSocketClient {
             logger.warning("Failed to connect to the service " + uri);
         }
 
-
         @Override
         protected void channelRead0(ChannelHandlerContext ctx, Object msg) throws Exception {
-
             Channel ch = ctx.channel();
-
             if (!handShaker.isHandshakeComplete()) {
                 handShaker.finishHandshake(ch, (FullHttpResponse) msg);
-                logger.info("websocket client connected!");
                 handshakeFuture.setSuccess();
                 return;
             }
-
             if (msg instanceof FullHttpResponse) {
                 FullHttpResponse response = (FullHttpResponse) msg;
                 throw new Exception("Unexpected FullHttpResponse (getStatus=" + response.status() + ", content=" + response.content().toString(CharsetUtil.UTF_8) + ')');
             }
-
-            if(msg instanceof WebSocketFrame){
-                WebSocketFrame frame = (WebSocketFrame)msg;
+            if (msg instanceof WebSocketFrame) {
+                WebSocketFrame frame = (WebSocketFrame) msg;
                 if (frame instanceof CloseWebSocketFrame) {
-                    //关闭
+                    handShaker.close(ctx.channel(), ((CloseWebSocketFrame) frame).retain());
                     return;
                 }
                 if (frame instanceof PongWebSocketFrame) {
-                    //心跳
                     return;
                 }
-                if(frame instanceof TextWebSocketFrame){
+                if (frame instanceof TextWebSocketFrame) {
                     logger.info(((TextWebSocketFrame) frame).text());
                     return;
                 }
@@ -135,6 +137,7 @@ public class WebSocketClient {
 
         /**
          * 异常
+         *
          * @param ctx
          * @param cause
          */
@@ -146,7 +149,5 @@ public class WebSocketClient {
             }
             ctx.close();
         }
-
-
     }
 }
