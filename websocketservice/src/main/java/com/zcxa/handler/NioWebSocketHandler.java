@@ -17,10 +17,29 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
 
+/**
+ * @author zzk
+ * @since 1.0.0
+ */
 public class NioWebSocketHandler extends SimpleChannelInboundHandler<Object> {
 
 
     private static final Logger logger = Logger.getLogger(NioWebSocketHandler.class.getName());
+
+    private static final String PING = "ping";
+
+    private static final String PONG = "pong";
+
+    private static final String UPGRADE = "Upgrade";
+
+    private static final String WEB_SOCKET = "websocket";
+
+    private static final String ALL = "ALL";
+
+    private static final int REQUEST_OK = 200;
+
+    private static final String FORMAT_EXPRESSION = "message format error";
+
 
     private WebSocketServerHandshaker handShaker;
 
@@ -69,44 +88,48 @@ public class NioWebSocketHandler extends SimpleChannelInboundHandler<Object> {
 
         if (frame instanceof TextWebSocketFrame) {
             String text = ((TextWebSocketFrame) frame).text();
-           // logger.info("Message received：" + text);
-            if ("ping".equals(text)) {
-                TextWebSocketFrame tws = new TextWebSocketFrame("pong");
-                ctx.channel().writeAndFlush(tws); // 回发
+            if (PING.equals(text)) {
+                TextWebSocketFrame tws = new TextWebSocketFrame(PONG);
+                // 回发
+                ctx.channel().writeAndFlush(tws);
                 return;
             }
             Message msg = JSONObject.parseObject(text, Message.class);
             if (null != msg) {
                 TextWebSocketFrame tws = new TextWebSocketFrame(msg.getMsg());
                 switch (msg.getTo()) {
-                    case "ALL": {
-                        ChannelSupervise.send2All(tws);  //群发
+                    case ALL: {
+                        //群发
+                        ChannelSupervise.send2All(tws);
                     }
                     break;
                     default: {
-                        ChannelSupervise.findChannel(user.get(msg.getTo())).writeAndFlush(tws); //发给指定端点
+                        //发给指定端
+                        ChannelSupervise.findChannel(user.get(msg.getTo())).writeAndFlush(tws);
                     }
                     break;
                 }
             } else {
-                TextWebSocketFrame tws = new TextWebSocketFrame("Incorrect message format");
-                ctx.channel().writeAndFlush(tws); // 回发
+                TextWebSocketFrame tws = new TextWebSocketFrame(FORMAT_EXPRESSION);
+                //回发
+                ctx.channel().writeAndFlush(tws);
                 return;
             }
         } else {
-            TextWebSocketFrame tws = new TextWebSocketFrame("Incorrect message format");
-            ctx.channel().writeAndFlush(tws); // 回发
+            TextWebSocketFrame tws = new TextWebSocketFrame(FORMAT_EXPRESSION);
+            // 回发
+            ctx.channel().writeAndFlush(tws);
             return;
         }
     }
 
     private void handleHttpRequest(ChannelHandlerContext ctx, FullHttpRequest request) {
-        if (!request.decoderResult().isSuccess() || (!"websocket".equals(request.headers().get("Upgrade")))) {
+        if (!request.decoderResult().isSuccess() || (!WEB_SOCKET.equals(request.headers().get(UPGRADE)))) {
             sendHttpResponse(ctx, request, new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.BAD_REQUEST));
             return;
         }
 
-        WebSocketServerHandshakerFactory factory = new WebSocketServerHandshakerFactory("ws://localhost:8080/websocket", null, false);
+        WebSocketServerHandshakerFactory factory = new WebSocketServerHandshakerFactory("ws://host:port/{clientId}", null, false);
         handShaker = factory.newHandshaker(request);
         if (null == handShaker) {
             WebSocketServerHandshakerFactory.sendUnsupportedVersionResponse(ctx.channel());
@@ -118,13 +141,13 @@ public class NioWebSocketHandler extends SimpleChannelInboundHandler<Object> {
 
 
     private void sendHttpResponse(ChannelHandlerContext ctx, FullHttpRequest request, DefaultFullHttpResponse response) {
-        if (response.status().code() != 200) {
+        if (response.status().code() != REQUEST_OK) {
             ByteBuf buf = Unpooled.copiedBuffer(response.status().toString(), CharsetUtil.UTF_8);
             response.content().writeBytes(buf);
             buf.release();
         }
         ChannelFuture f = ctx.channel().writeAndFlush(response);
-        if (!HttpUtil.isKeepAlive(request) || response.status().code() != 200) {
+        if (!HttpUtil.isKeepAlive(request) || response.status().code() != REQUEST_OK) {
             f.addListener(ChannelFutureListener.CLOSE);
         }
     }

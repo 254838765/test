@@ -1,5 +1,9 @@
 package com.zcxa.model;
 
+/**
+ * @author zzk
+ * @since 1.0.0
+ */
 public class Message {
 
     private String to;

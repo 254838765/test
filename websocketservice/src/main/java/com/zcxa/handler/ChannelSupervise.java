@@ -11,27 +11,31 @@ import io.netty.util.concurrent.GlobalEventExecutor;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+/**
+ * @author zzk
+ * @since 1.0.0
+ */
 public class ChannelSupervise {
 
     private static ChannelGroup group = new DefaultChannelGroup(GlobalEventExecutor.INSTANCE);
 
     private static ConcurrentMap<String, ChannelId> channelMap = new ConcurrentHashMap<>();
 
-    public static void addChannel(Channel channel){
+    public static void addChannel(Channel channel) {
         group.add(channel);
-        channelMap.put(channel.id().asShortText(),channel.id());
+        channelMap.put(channel.id().asShortText(), channel.id());
     }
 
-    public static void removeChannel(Channel channel){
+    public static void removeChannel(Channel channel) {
         group.remove(channel);
         channelMap.remove(channel.id().asShortText());
     }
 
-    public static Channel findChannel(String id){
+    public static Channel findChannel(String id) {
         return group.find(channelMap.get(id));
     }
 
-    public static void send2All(TextWebSocketFrame txf){
+    public static void send2All(TextWebSocketFrame txf) {
         group.writeAndFlush(txf);
     }
 
